@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "jimicraft",
+  "version": "${version}",
+  "name": "基米工艺",
+  "description": "驯服的猫在矿场结构中自动工作，为你挖矿产出各种矿物。",
+  "authors": ["gggiz"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.jimicraft.JimiCraftMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": ">=26.1",
+    "fabric-api": "*"
+  }
+}
