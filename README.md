@@ -31,6 +31,10 @@ Minecraft 26.1.2 Fabric 模组 —— 让驯服的猫猫在矿场结构中自动
 | 青金石 | 13% |
 | 圆石 | 12% |
 
+## 下载
+
+[Releases](https://github.com/gggiz/jimicraft/releases) 页面下载最新版 JAR，放入 `mods` 文件夹即可。
+
 ## 构建
 
 - **Minecraft**: 26.1.2 (Mojang mappings)
