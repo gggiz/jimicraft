@@ -57,12 +57,14 @@ public class LumberMillWorkHandler {
             UUID toolId = entry.getKey();
             UUID catId = entry.getValue();
             var toolEntity = world.getEntity(toolId);
+            if (toolEntity == null) continue; // chunk 未加载，等下次
             if (!(toolEntity instanceof Display.ItemDisplay tool) || tool.isRemoved()) {
                 CATS_WITH_TOOLS.remove(catId);
                 toolIt.remove();
                 continue;
             }
             var entity = world.getEntity(catId);
+            if (entity == null) continue; // chunk 未加载
             if (!(entity instanceof Cat cat) || !cat.isAlive() || !isInMill(world, cat)) {
                 tool.discard();
                 CATS_WITH_TOOLS.remove(catId);
