@@ -11,6 +11,10 @@ public class JimiCraftMod implements ModInitializer {
         ModEntitySpawns.init();
         QuarryCreationHandler.init();
         QuarryWorkHandler.init();
+        LumberMillCreationHandler.init();
+        LumberMillWorkHandler.init();
+        CatnipFactoryHandler.init();
+        CatnipHandler.init();
         System.out.println("[JimiCraft] 基米工艺已加载！");
     }
 
