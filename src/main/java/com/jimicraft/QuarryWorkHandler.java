@@ -26,8 +26,8 @@ public class QuarryWorkHandler {
     private static final Map<UUID, Integer> NAME_DISPLAYS = new HashMap<>();
     // 保存猫的原始名字
     private static final Map<UUID, Component> ORIGINAL_NAMES = new HashMap<>();
-    // 工具展示实体 -> 猫的UUID
-    private static final Map<Display.ItemDisplay, UUID> TOOL_CATS = new HashMap<>();
+    // 工具展示实体UUID -> 猫的UUID
+    private static final Map<UUID, UUID> TOOL_CATS = new HashMap<>();
     private static final Set<UUID> CATS_WITH_TOOLS = new HashSet<>();
     private static int tickCounter = 0;
 
@@ -56,13 +56,13 @@ public class QuarryWorkHandler {
         }
 
         // 更新工具展示动画：跟随猫的位置和朝向，猫离开工作区则移除
-        Iterator<Map.Entry<Display.ItemDisplay, UUID>> toolIt = TOOL_CATS.entrySet().iterator();
+        Iterator<Map.Entry<UUID, UUID>> toolIt = TOOL_CATS.entrySet().iterator();
         while (toolIt.hasNext()) {
             var entry = toolIt.next();
-            Display.ItemDisplay tool = entry.getKey();
+            UUID toolId = entry.getKey();
             UUID catId = entry.getValue();
-            if (tool.level() != world) continue; // 跳过其他世界的工具
-            if (tool.isRemoved()) {
+            var toolEntity = world.getEntity(toolId);
+            if (!(toolEntity instanceof Display.ItemDisplay tool) || tool.isRemoved()) {
                 CATS_WITH_TOOLS.remove(catId);
                 toolIt.remove();
                 continue;
@@ -149,7 +149,7 @@ public class QuarryWorkHandler {
             tool.setItemStack(new ItemStack(Items.IRON_PICKAXE));
             tool.setItemTransform(ItemDisplayContext.THIRD_PERSON_RIGHT_HAND);
             world.addFreshEntity(tool);
-            TOOL_CATS.put(tool, id);
+            TOOL_CATS.put(tool.getUUID(), id);
         }
 
         // 挖掘粒子效果
