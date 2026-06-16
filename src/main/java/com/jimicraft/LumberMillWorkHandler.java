@@ -7,8 +7,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.feline.Cat;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -21,6 +25,8 @@ public class LumberMillWorkHandler {
     private static final Map<QuarryArea, List<BlockPos>> CHEST_CACHE = new HashMap<>();
     private static final Map<UUID, Integer> NAME_DISPLAYS = new HashMap<>();
     private static final Map<UUID, Component> ORIGINAL_NAMES = new HashMap<>();
+    private static final Map<Display.ItemDisplay, UUID> TOOL_CATS = new HashMap<>();
+    private static final Set<UUID> CATS_WITH_TOOLS = new HashSet<>();
     private static int tickCounter = 0;
 
     public static void init() {
@@ -43,6 +49,34 @@ public class LumberMillWorkHandler {
             } else {
                 entry.setValue(remaining);
             }
+        }
+
+        Iterator<Map.Entry<Display.ItemDisplay, UUID>> toolIt = TOOL_CATS.entrySet().iterator();
+        while (toolIt.hasNext()) {
+            var entry = toolIt.next();
+            Display.ItemDisplay tool = entry.getKey();
+            UUID catId = entry.getValue();
+            if (tool.level() != world) continue;
+            if (tool.isRemoved()) {
+                CATS_WITH_TOOLS.remove(catId);
+                toolIt.remove();
+                continue;
+            }
+            var entity = world.getEntity(catId);
+            if (!(entity instanceof Cat cat) || !cat.isAlive() || !isInMill(world, cat)) {
+                tool.discard();
+                CATS_WITH_TOOLS.remove(catId);
+                toolIt.remove();
+                continue;
+            }
+            float yawRad = cat.yBodyRot * (float) Math.PI / 180f;
+            double fx = -Math.sin(yawRad) * 0.4;
+            double fz = Math.cos(yawRad) * 0.4;
+            double rx = Math.cos(yawRad) * 0.3;
+            double rz = Math.sin(yawRad) * 0.3;
+            double bobY = cat.getY() + 0.9 + Math.sin(tickCounter * 0.5) * 0.15;
+            tool.setPos(cat.getX() + fx + rx, bobY, cat.getZ() + fz + rz);
+            tool.setYRot(cat.yBodyRot);
         }
 
         if (tickCounter % 200 == 0) {
@@ -93,6 +127,22 @@ public class LumberMillWorkHandler {
         cat.setCustomName(Component.literal("§2🪓 §e" + woodName));
         NAME_DISPLAYS.put(id, 40);
 
+        if (!CATS_WITH_TOOLS.contains(id)) {
+            CATS_WITH_TOOLS.add(id);
+            Display.ItemDisplay tool = new Display.ItemDisplay(EntityType.ITEM_DISPLAY, world);
+            float yawRad = cat.yBodyRot * (float) Math.PI / 180f;
+            double fx = -Math.sin(yawRad) * 0.4;
+            double fz = Math.cos(yawRad) * 0.4;
+            double rx = Math.cos(yawRad) * 0.3;
+            double rz = Math.sin(yawRad) * 0.3;
+            tool.setPos(cat.getX() + fx + rx, cat.getY() + 0.9, cat.getZ() + fz + rz);
+            tool.setYRot(cat.yBodyRot);
+            tool.setItemStack(new ItemStack(Items.IRON_AXE));
+            tool.setItemTransform(ItemDisplayContext.THIRD_PERSON_RIGHT_HAND);
+            world.addFreshEntity(tool);
+            TOOL_CATS.put(tool, id);
+        }
+
         RandomSource rand = world.getRandom();
         for (ServerPlayer player : world.players()) {
             for (int i = 0; i < 3; i++) {
@@ -103,6 +153,15 @@ public class LumberMillWorkHandler {
                         ox, oy, oz, 1, 0, 0.05, 0, 0.02);
             }
         }
+    }
+
+    private static boolean isInMill(ServerLevel world, Cat cat) {
+        for (QuarryArea m : LumberMillCreationHandler.getMills()) {
+            if (m.world() == world && m.getBounds().contains(cat.position())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<BlockPos> findChestsInBounds(ServerLevel world, AABB bounds) {

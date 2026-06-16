@@ -7,7 +7,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.feline.Cat;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -22,6 +26,9 @@ public class QuarryWorkHandler {
     private static final Map<UUID, Integer> NAME_DISPLAYS = new HashMap<>();
     // 保存猫的原始名字
     private static final Map<UUID, Component> ORIGINAL_NAMES = new HashMap<>();
+    // 工具展示实体 -> 猫的UUID
+    private static final Map<Display.ItemDisplay, UUID> TOOL_CATS = new HashMap<>();
+    private static final Set<UUID> CATS_WITH_TOOLS = new HashSet<>();
     private static int tickCounter = 0;
 
     public static void init() {
@@ -46,6 +53,35 @@ public class QuarryWorkHandler {
             } else {
                 entry.setValue(remaining);
             }
+        }
+
+        // 更新工具展示动画：跟随猫的位置和朝向，猫离开工作区则移除
+        Iterator<Map.Entry<Display.ItemDisplay, UUID>> toolIt = TOOL_CATS.entrySet().iterator();
+        while (toolIt.hasNext()) {
+            var entry = toolIt.next();
+            Display.ItemDisplay tool = entry.getKey();
+            UUID catId = entry.getValue();
+            if (tool.level() != world) continue; // 跳过其他世界的工具
+            if (tool.isRemoved()) {
+                CATS_WITH_TOOLS.remove(catId);
+                toolIt.remove();
+                continue;
+            }
+            var entity = world.getEntity(catId);
+            if (!(entity instanceof Cat cat) || !cat.isAlive() || !isInQuarry(world, cat)) {
+                tool.discard();
+                CATS_WITH_TOOLS.remove(catId);
+                toolIt.remove();
+                continue;
+            }
+            float yawRad = cat.yBodyRot * (float) Math.PI / 180f;
+            double fx = -Math.sin(yawRad) * 0.4;
+            double fz = Math.cos(yawRad) * 0.4;
+            double rx = Math.cos(yawRad) * 0.3;
+            double rz = Math.sin(yawRad) * 0.3;
+            double bobY = cat.getY() + 0.9 + Math.sin(tickCounter * 0.5) * 0.15;
+            tool.setPos(cat.getX() + fx + rx, bobY, cat.getZ() + fz + rz);
+            tool.setYRot(cat.yBodyRot);
         }
 
         // 每10秒刷新箱子缓存
@@ -99,6 +135,23 @@ public class QuarryWorkHandler {
         cat.setCustomName(Component.literal("§6⛏ §e" + oreName));
         NAME_DISPLAYS.put(id, 40);
 
+        // 猫旁边显示挖掘中的铁镐（已存在则不重复创建）
+        if (!CATS_WITH_TOOLS.contains(id)) {
+            CATS_WITH_TOOLS.add(id);
+            Display.ItemDisplay tool = new Display.ItemDisplay(EntityType.ITEM_DISPLAY, world);
+            float yawRad = cat.yBodyRot * (float) Math.PI / 180f;
+            double fx = -Math.sin(yawRad) * 0.4;
+            double fz = Math.cos(yawRad) * 0.4;
+            double rx = Math.cos(yawRad) * 0.3;
+            double rz = Math.sin(yawRad) * 0.3;
+            tool.setPos(cat.getX() + fx + rx, cat.getY() + 0.9, cat.getZ() + fz + rz);
+            tool.setYRot(cat.yBodyRot);
+            tool.setItemStack(new ItemStack(Items.IRON_PICKAXE));
+            tool.setItemTransform(ItemDisplayContext.THIRD_PERSON_RIGHT_HAND);
+            world.addFreshEntity(tool);
+            TOOL_CATS.put(tool, id);
+        }
+
         // 挖掘粒子效果
         RandomSource rand = world.getRandom();
         for (ServerPlayer player : world.players()) {
@@ -110,6 +163,15 @@ public class QuarryWorkHandler {
                         ox, oy, oz, 1, 0, 0.05, 0, 0.02);
             }
         }
+    }
+
+    private static boolean isInQuarry(ServerLevel world, Cat cat) {
+        for (QuarryArea q : QuarryCreationHandler.getQuarries()) {
+            if (q.world() == world && q.getBounds().contains(cat.position())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<BlockPos> findChestsInBounds(ServerLevel world, AABB bounds) {
