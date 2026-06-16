@@ -79,14 +79,6 @@ public class CatnipFactoryHandler {
 
         // 每0.5秒检测生成触发器 + 清除无效工厂
         if (tickCounter % 10 == 0) {
-            Iterator<QuarryArea> it = FACTORIES.iterator();
-            while (it.hasNext()) {
-                QuarryArea q = it.next();
-                if (q.world() == world && !world.isLoaded(q.origin())) {
-                    it.remove();
-                }
-            }
-
             var players = world.players();
             if (!players.isEmpty()) {
                 for (var player : players) {

@@ -52,15 +52,6 @@ public class LumberMillCreationHandler {
         if (tickCounter % 10 != 0) return;
 
         var players = world.players();
-        if (players.isEmpty()) return;
-
-        Iterator<QuarryArea> it = MILLS.iterator();
-        while (it.hasNext()) {
-            QuarryArea q = it.next();
-            if (q.world() == world && !world.isLoaded(q.origin())) {
-                it.remove();
-            }
-        }
 
         for (var player : players) {
             AABB area = new AABB(player.blockPosition()).inflate(32);
