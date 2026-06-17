@@ -7,6 +7,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -47,6 +48,12 @@ public class QuarryCreationHandler {
             QUARRIES.addAll(restored);
             if (!restored.isEmpty()) {
                 System.out.println("[JimiCraft] 已恢复 " + restored.size() + " 个矿场");
+                // 清理上次会话遗留的工具展示实体
+                for (QuarryArea q : restored) {
+                    for (Display.ItemDisplay display : world.getEntitiesOfClass(Display.ItemDisplay.class, q.getBounds())) {
+                        display.discard();
+                    }
+                }
             }
         }
 

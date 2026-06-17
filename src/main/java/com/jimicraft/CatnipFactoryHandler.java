@@ -149,18 +149,12 @@ public class CatnipFactoryHandler {
     }
 
     private static void save(MinecraftServer server) {
-        Map<ServerLevel, String> dimIds = new HashMap<>();
-        for (ServerLevel level : server.getAllLevels()) {
-            dimIds.put(level, getDimId(level.dimension()));
-        }
         List<QuarryState.JsonEntry> entries = new ArrayList<>();
         for (QuarryArea q : FACTORIES) {
-            String dimId = dimIds.get(q.world());
-            if (dimId != null) {
-                entries.add(new QuarryState.JsonEntry(dimId,
-                        q.origin().getX(), q.origin().getY(), q.origin().getZ(),
-                        q.size().getX(), q.size().getY(), q.size().getZ()));
-            }
+            String dimId = q.world().dimension().identifier().toString();
+            entries.add(new QuarryState.JsonEntry(dimId,
+                    q.origin().getX(), q.origin().getY(), q.origin().getZ(),
+                    q.size().getX(), q.size().getY(), q.size().getZ()));
         }
         Path path = getSavePath(server);
         try {
@@ -179,7 +173,7 @@ public class CatnipFactoryHandler {
         if (!Files.exists(path)) return result;
         Map<String, ServerLevel> dimMap = new HashMap<>();
         for (ServerLevel level : server.getAllLevels()) {
-            dimMap.put(getDimId(level.dimension()), level);
+            dimMap.put(level.dimension().identifier().toString(), level);
         }
         try (Reader r = Files.newBufferedReader(path)) {
             List<QuarryState.JsonEntry> entries = GSON.fromJson(r, LIST_TYPE);
@@ -189,6 +183,8 @@ public class CatnipFactoryHandler {
                     if (lvl != null) {
                         result.add(new QuarryArea(new BlockPos(e.ox(), e.oy(), e.oz()),
                                 new BlockPos(e.sx(), e.sy(), e.sz()), lvl));
+                    } else {
+                        System.out.println("[JimiCraft] 警告：找不到维度 " + e.dimension() + "，跳过工厂");
                     }
                 }
             }
@@ -199,18 +195,6 @@ public class CatnipFactoryHandler {
     }
 
     private static String getDimId(ResourceKey<Level> dimKey) {
-        try {
-            var method = dimKey.getClass().getMethod("location");
-            return method.invoke(dimKey).toString();
-        } catch (Exception e1) {
-            try {
-                var method = dimKey.getClass().getMethod("value");
-                return method.invoke(dimKey).toString();
-            } catch (Exception e2) {
-                String s = dimKey.toString();
-                int lastSlash = s.lastIndexOf('/');
-                return lastSlash >= 0 ? s.substring(lastSlash + 1).replace("]", "") : s;
-            }
-        }
+        return dimKey.identifier().toString();
     }
 }

@@ -18,7 +18,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 
-import java.lang.reflect.Field;
 import java.util.*;
 
 public class CatnipHandler {
@@ -29,18 +28,9 @@ public class CatnipHandler {
     private static final int BOOST_DURATION = 6000;
 
     public static void init() {
-        // MC 26.1 requires item key on Properties before Item construction.
-        // The 'id' field is package-private, so we set it via reflection.
         ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, JimiCraftMod.id("catnip"));
-        Item.Properties props = new Item.Properties().stacksTo(64);
-        try {
-            Field idField = Item.Properties.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(props, key);
-        } catch (Exception e) {
-            throw new RuntimeException("[JimiCraft] Failed to set catnip item id", e);
-        }
-        CATNIP_ITEM = Registry.register(BuiltInRegistries.ITEM, key, new Item(props));
+        CATNIP_ITEM = Registry.register(BuiltInRegistries.ITEM, key,
+                new Item(new Item.Properties().stacksTo(64).setId(key)));
 
         PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
             if (world.isClientSide()) return;

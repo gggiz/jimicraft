@@ -4,10 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.Level;
 
 import java.io.*;
 import java.lang.reflect.Type;
@@ -25,19 +23,12 @@ public class LumberMillState {
     }
 
     public static void save(MinecraftServer server, List<QuarryArea> mills) {
-        Map<ServerLevel, String> dimIds = new HashMap<>();
-        for (ServerLevel level : server.getAllLevels()) {
-            dimIds.put(level, getDimId(level.dimension()));
-        }
-
         List<QuarryState.JsonEntry> entries = new ArrayList<>();
         for (QuarryArea q : mills) {
-            String dimId = dimIds.get(q.world());
-            if (dimId != null) {
-                entries.add(new QuarryState.JsonEntry(dimId,
-                        q.origin().getX(), q.origin().getY(), q.origin().getZ(),
-                        q.size().getX(), q.size().getY(), q.size().getZ()));
-            }
+            String dimId = q.world().dimension().identifier().toString();
+            entries.add(new QuarryState.JsonEntry(dimId,
+                    q.origin().getX(), q.origin().getY(), q.origin().getZ(),
+                    q.size().getX(), q.size().getY(), q.size().getZ()));
         }
         Path path = getSavePath(server);
         try {
@@ -57,7 +48,7 @@ public class LumberMillState {
 
         Map<String, ServerLevel> dimMap = new HashMap<>();
         for (ServerLevel level : server.getAllLevels()) {
-            dimMap.put(getDimId(level.dimension()), level);
+            dimMap.put(level.dimension().identifier().toString(), level);
         }
 
         try (Reader r = Files.newBufferedReader(path)) {
@@ -69,6 +60,8 @@ public class LumberMillState {
                         BlockPos origin = new BlockPos(e.ox(), e.oy(), e.oz());
                         BlockPos size = new BlockPos(e.sx(), e.sy(), e.sz());
                         result.add(new QuarryArea(origin, size, world));
+                    } else {
+                        System.out.println("[JimiCraft] 警告：找不到维度 " + e.dimension() + "，跳过伐木场");
                     }
                 }
             }
@@ -76,21 +69,5 @@ public class LumberMillState {
             System.out.println("[JimiCraft] 加载伐木场数据失败: " + ex.getMessage());
         }
         return result;
-    }
-
-    private static String getDimId(ResourceKey<Level> dimKey) {
-        try {
-            var method = dimKey.getClass().getMethod("location");
-            return method.invoke(dimKey).toString();
-        } catch (Exception e1) {
-            try {
-                var method = dimKey.getClass().getMethod("value");
-                return method.invoke(dimKey).toString();
-            } catch (Exception e2) {
-                String s = dimKey.toString();
-                int lastSlash = s.lastIndexOf('/');
-                return lastSlash >= 0 ? s.substring(lastSlash + 1).replace("]", "") : s;
-            }
-        }
     }
 }

@@ -4,8 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -29,20 +27,12 @@ public class QuarryState {
     }
 
     public static void save(MinecraftServer server, List<QuarryArea> quarries) {
-        // 构建 ServerLevel → 维度ID 的映射
-        Map<ServerLevel, String> dimIds = new HashMap<>();
-        for (ServerLevel level : server.getAllLevels()) {
-            dimIds.put(level, getDimId(level.dimension()));
-        }
-
         List<JsonEntry> entries = new ArrayList<>();
         for (QuarryArea q : quarries) {
-            String dimId = dimIds.get(q.world());
-            if (dimId != null) {
-                entries.add(new JsonEntry(dimId,
-                        q.origin().getX(), q.origin().getY(), q.origin().getZ(),
-                        q.size().getX(), q.size().getY(), q.size().getZ()));
-            }
+            String dimId = q.world().dimension().identifier().toString();
+            entries.add(new JsonEntry(dimId,
+                    q.origin().getX(), q.origin().getY(), q.origin().getZ(),
+                    q.size().getX(), q.size().getY(), q.size().getZ()));
         }
         Path path = getSavePath(server);
         try {
@@ -60,10 +50,9 @@ public class QuarryState {
         Path path = getSavePath(server);
         if (!Files.exists(path)) return result;
 
-        // 构建 维度ID → ServerLevel 的映射
         Map<String, ServerLevel> dimMap = new HashMap<>();
         for (ServerLevel level : server.getAllLevels()) {
-            dimMap.put(getDimId(level.dimension()), level);
+            dimMap.put(level.dimension().identifier().toString(), level);
         }
 
         try (Reader r = Files.newBufferedReader(path)) {
@@ -75,6 +64,8 @@ public class QuarryState {
                         BlockPos origin = new BlockPos(e.ox(), e.oy(), e.oz());
                         BlockPos size = new BlockPos(e.sx(), e.sy(), e.sz());
                         result.add(new QuarryArea(origin, size, world));
+                    } else {
+                        System.out.println("[JimiCraft] 警告：找不到维度 " + e.dimension() + "，跳过矿场");
                     }
                 }
             }
@@ -82,23 +73,5 @@ public class QuarryState {
             System.out.println("[JimiCraft] 加载矿场数据失败: " + ex.getMessage());
         }
         return result;
-    }
-
-    private static String getDimId(ResourceKey<Level> dimKey) {
-        // ResourceKey 在 MC 26.1 中的 record 字段可能不是 location，用反射获取
-        try {
-            var method = dimKey.getClass().getMethod("location");
-            return method.invoke(dimKey).toString();
-        } catch (Exception e1) {
-            try {
-                var method = dimKey.getClass().getMethod("value");
-                return method.invoke(dimKey).toString();
-            } catch (Exception e2) {
-                // 最后兜底：toString 通常类似 ResourceKey[... / minecraft:overworld]
-                String s = dimKey.toString();
-                int lastSlash = s.lastIndexOf('/');
-                return lastSlash >= 0 ? s.substring(lastSlash + 1).replace("]", "") : s;
-            }
-        }
     }
 }
